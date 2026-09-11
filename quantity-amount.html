@@ -152,7 +152,8 @@
       inset: 0;
       z-index: 20;
       flex-direction: column;
-      min-height: 100%;
+      height: 100vh;
+      height: 100dvh;
       color: #fff;
       background: #111;
     }
@@ -203,14 +204,17 @@
       flex: 1;
       overflow: hidden;
       width: 100%;
-      min-height: 180px;
+      min-height: 0;
       background: #080808;
       touch-action: none;
       user-select: none;
-      cursor: grab;
+      -webkit-user-select: none;
+      cursor: crosshair;
     }
 
-    .crop-canvas.is-dragging { cursor: grabbing; }
+    .crop-canvas.is-moving { cursor: grabbing; }
+    .crop-canvas.is-resizing { cursor: default; }
+    .crop-canvas.is-drawing { cursor: crosshair; }
 
     .crop-image {
       position: absolute;
@@ -224,21 +228,27 @@
     }
 
     .crop-image.is-ready { display: block; }
-
     .crop-box {
       position: absolute;
       z-index: 1;
       border: 1px solid rgba(255, 255, 255, .9);
       box-shadow: 0 0 0 9999px rgba(0, 0, 0, .62);
-      pointer-events: none;
+      cursor: move;
+      pointer-events: auto;
+      touch-action: none;
+      will-change: left, top, width, height;
     }
 
     .crop-box::before,
     .crop-box::after {
       position: absolute;
       content: "";
-      opacity: .42;
+      opacity: .28;
+      transition: opacity 160ms ease;
     }
+
+    .crop-canvas.is-adjusting .crop-box::before,
+    .crop-canvas.is-adjusting .crop-box::after { opacity: .58; }
 
     .crop-box::before {
       top: 33.333%;
@@ -261,52 +271,67 @@
     .crop-handle {
       position: absolute;
       z-index: 2;
-      width: 22px;
-      height: 22px;
+      display: block;
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    .crop-handle::after {
+      position: absolute;
+      content: "";
+    }
+
+    .crop-handle[data-handle="nw"],
+    .crop-handle[data-handle="ne"],
+    .crop-handle[data-handle="sw"],
+    .crop-handle[data-handle="se"] {
+      width: 44px;
+      height: 44px;
+    }
+
+    .crop-handle[data-handle="nw"] { top: 0; left: 0; transform: translate(-50%, -50%); cursor: nwse-resize; }
+    .crop-handle[data-handle="ne"] { top: 0; right: 0; transform: translate(50%, -50%); cursor: nesw-resize; }
+    .crop-handle[data-handle="sw"] { bottom: 0; left: 0; transform: translate(-50%, 50%); cursor: nesw-resize; }
+    .crop-handle[data-handle="se"] { right: 0; bottom: 0; transform: translate(50%, 50%); cursor: nwse-resize; }
+
+    .crop-handle[data-handle="nw"]::after,
+    .crop-handle[data-handle="ne"]::after,
+    .crop-handle[data-handle="sw"]::after,
+    .crop-handle[data-handle="se"]::after {
+      width: 18px;
+      height: 18px;
       border-color: #fff;
       border-style: solid;
     }
 
-    .crop-handle[data-handle="nw"] { top: -2px; left: -2px; border-width: 3px 0 0 3px; }
-    .crop-handle[data-handle="ne"] { top: -2px; right: -2px; border-width: 3px 3px 0 0; }
-    .crop-handle[data-handle="sw"] { bottom: -2px; left: -2px; border-width: 0 0 3px 3px; }
-    .crop-handle[data-handle="se"] { right: -2px; bottom: -2px; border-width: 0 3px 3px 0; }
+    .crop-handle[data-handle="nw"]::after { right: 3px; bottom: 3px; border-width: 3px 0 0 3px; }
+    .crop-handle[data-handle="ne"]::after { bottom: 3px; left: 3px; border-width: 3px 3px 0 0; }
+    .crop-handle[data-handle="sw"]::after { top: 3px; right: 3px; border-width: 0 0 3px 3px; }
+    .crop-handle[data-handle="se"]::after { top: 3px; left: 3px; border-width: 0 3px 3px 0; }
 
-    .crop-footer {
-      position: relative;
-      z-index: 2;
-      padding: 14px 20px calc(16px + env(safe-area-inset-bottom));
-      background: #181818;
+    .crop-handle[data-handle="n"],
+    .crop-handle[data-handle="s"] {
+      left: 44px;
+      width: calc(100% - 88px);
+      min-width: 12px;
+      height: 32px;
+      cursor: ns-resize;
     }
 
-    .crop-tip {
-      margin: 0 0 12px;
-      color: rgba(255, 255, 255, .72);
-      text-align: center;
-      font-size: 13px;
+    .crop-handle[data-handle="n"] { top: 0; transform: translateY(-50%); }
+    .crop-handle[data-handle="s"] { bottom: 0; transform: translateY(50%); }
+
+    .crop-handle[data-handle="e"],
+    .crop-handle[data-handle="w"] {
+      top: 44px;
+      width: 32px;
+      height: calc(100% - 88px);
+      min-height: 12px;
+      cursor: ew-resize;
     }
 
-    .zoom-control {
-      display: grid;
-      grid-template-columns: 20px minmax(0, 320px) 20px;
-      justify-content: center;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .zoom-icon {
-      color: rgba(255, 255, 255, .78);
-      text-align: center;
-      font-size: 20px;
-      line-height: 1;
-    }
-
-    .zoom-range {
-      width: 100%;
-      height: 28px;
-      margin: 0;
-      accent-color: #fff;
-    }
+    .crop-handle[data-handle="e"] { right: 0; transform: translateX(50%); }
+    .crop-handle[data-handle="w"] { left: 0; transform: translateX(-50%); }
 
     .ocr-status {
       flex: 1;
@@ -442,19 +467,15 @@
           <img class="crop-image" id="crop-image" alt="待裁剪的图片">
           <div class="crop-box" id="crop-box" aria-label="图片裁剪区域">
             <span class="crop-handle" data-handle="nw"></span>
+            <span class="crop-handle" data-handle="n"></span>
             <span class="crop-handle" data-handle="ne"></span>
+            <span class="crop-handle" data-handle="e"></span>
             <span class="crop-handle" data-handle="sw"></span>
+            <span class="crop-handle" data-handle="s"></span>
             <span class="crop-handle" data-handle="se"></span>
+            <span class="crop-handle" data-handle="w"></span>
           </div>
         </div>
-        <footer class="crop-footer">
-          <p class="crop-tip">拖动图片调整位置，双指或滑杆缩放</p>
-          <div class="zoom-control">
-            <span class="zoom-icon" aria-hidden="true">−</span>
-            <input class="zoom-range" id="zoom-range" type="range" min="100" max="500" value="100" aria-label="缩放图片">
-            <span class="zoom-icon" aria-hidden="true">＋</span>
-          </div>
-        </footer>
       </div>
     </section>
 
@@ -499,7 +520,6 @@
       var cropBox = document.getElementById('crop-box');
       var cropRecognizeButton = document.getElementById('crop-recognize-button');
       var cancelCropButton = document.getElementById('cancel-crop-button');
-      var zoomRange = document.getElementById('zoom-range');
       var ocrWorker = null;
       var fields = [];
       var activeFieldIndex = 0;
@@ -508,9 +528,9 @@
       var crop = { x: 0, y: 0, width: 0, height: 0 };
       var cropFrame = { x: 0, y: 0, width: 0, height: 0 };
       var imageTransform = { x: 0, y: 0, scale: 1 };
-      var minimumScale = 1;
-      var cropPointers = {};
       var cropGesture = null;
+      var CROP_MARGIN = 18;
+      var MIN_CROP_SIZE = 56;
 
       for (var i = 0; i < ROW_COUNT; i += 1) {
         var row = document.createElement('tr');
@@ -617,7 +637,6 @@
 
       function renderCropImage() {
         cropImage.style.transform = 'translate3d(' + imageTransform.x + 'px,' + imageTransform.y + 'px,0) scale(' + imageTransform.scale + ')';
-        zoomRange.value = Math.round(imageTransform.scale / minimumScale * 100);
       }
 
       function clearCropImage() {
@@ -627,47 +646,46 @@
         cropImage.removeAttribute('src');
       }
 
-      function clampImagePosition() {
-        var imageWidth = selectedImage.naturalWidth * imageTransform.scale;
-        var imageHeight = selectedImage.naturalHeight * imageTransform.scale;
-        var minimumX = cropFrame.x + cropFrame.width - imageWidth;
-        var minimumY = cropFrame.y + cropFrame.height - imageHeight;
-        imageTransform.x = Math.max(minimumX, Math.min(cropFrame.x, imageTransform.x));
-        imageTransform.y = Math.max(minimumY, Math.min(cropFrame.y, imageTransform.y));
-      }
-
-      function setImageScale(nextScale, anchorX, anchorY) {
-        var oldScale = imageTransform.scale;
-        var limitedScale = Math.max(minimumScale, Math.min(minimumScale * 5, nextScale));
-        var imageX = (anchorX - imageTransform.x) / oldScale;
-        var imageY = (anchorY - imageTransform.y) / oldScale;
-        imageTransform.scale = limitedScale;
-        imageTransform.x = anchorX - imageX * limitedScale;
-        imageTransform.y = anchorY - imageY * limitedScale;
-        clampImagePosition();
-        renderCropImage();
+      function getImageBounds() {
+        return {
+          x: imageTransform.x,
+          y: imageTransform.y,
+          width: selectedImage.naturalWidth * imageTransform.scale,
+          height: selectedImage.naturalHeight * imageTransform.scale
+        };
       }
 
       function layoutCropEditor(resetImage) {
         if (!selectedImage || !cropCanvas.clientWidth || !cropCanvas.clientHeight) return;
-        var oldCenterX = cropFrame.width ? (cropFrame.x + cropFrame.width / 2 - imageTransform.x) / imageTransform.scale : selectedImage.naturalWidth / 2;
-        var oldCenterY = cropFrame.height ? (cropFrame.y + cropFrame.height / 2 - imageTransform.y) / imageTransform.scale : selectedImage.naturalHeight / 2;
-        var oldZoom = minimumScale ? imageTransform.scale / minimumScale : 1;
-        var frameWidth = Math.min(cropCanvas.clientWidth - 32, 620);
-        var frameHeight = Math.max(80, Math.min(cropCanvas.clientHeight - 72, frameWidth * 1.35));
-        cropFrame.width = Math.max(80, frameWidth);
-        cropFrame.height = frameHeight;
-        cropFrame.x = (cropCanvas.clientWidth - cropFrame.width) / 2;
-        cropFrame.y = (cropCanvas.clientHeight - cropFrame.height) / 2;
-        minimumScale = Math.max(cropFrame.width / selectedImage.naturalWidth, cropFrame.height / selectedImage.naturalHeight);
-        imageTransform.scale = minimumScale * (resetImage ? 1 : Math.max(1, Math.min(5, oldZoom)));
-        var sourceCenterX = resetImage ? selectedImage.naturalWidth / 2 : oldCenterX;
-        var sourceCenterY = resetImage ? selectedImage.naturalHeight / 2 : oldCenterY;
-        imageTransform.x = cropFrame.x + cropFrame.width / 2 - sourceCenterX * imageTransform.scale;
-        imageTransform.y = cropFrame.y + cropFrame.height / 2 - sourceCenterY * imageTransform.scale;
-        clampImagePosition();
-        renderCropFrame();
+        var sourceCrop = !resetImage && cropFrame.width ? getSourceCrop() : null;
+        var availableWidth = Math.max(1, cropCanvas.clientWidth - CROP_MARGIN * 2);
+        var availableHeight = Math.max(1, cropCanvas.clientHeight - CROP_MARGIN * 2);
+        imageTransform.scale = Math.min(
+          availableWidth / selectedImage.naturalWidth,
+          availableHeight / selectedImage.naturalHeight
+        );
+        imageTransform.x = (cropCanvas.clientWidth - selectedImage.naturalWidth * imageTransform.scale) / 2;
+        imageTransform.y = (cropCanvas.clientHeight - selectedImage.naturalHeight * imageTransform.scale) / 2;
+
+        if (sourceCrop) {
+          cropFrame = {
+            x: imageTransform.x + sourceCrop.x * imageTransform.scale,
+            y: imageTransform.y + sourceCrop.y * imageTransform.scale,
+            width: sourceCrop.width * imageTransform.scale,
+            height: sourceCrop.height * imageTransform.scale
+          };
+        } else {
+          var imageBounds = getImageBounds();
+          var inset = Math.min(48, imageBounds.width * .12, imageBounds.height * .12);
+          cropFrame = {
+            x: imageBounds.x + inset,
+            y: imageBounds.y + inset,
+            width: Math.max(1, imageBounds.width - inset * 2),
+            height: Math.max(1, imageBounds.height - inset * 2)
+          };
+        }
         renderCropImage();
+        renderCropFrame();
       }
 
       function getPointerPosition(event) {
@@ -675,85 +693,156 @@
         return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
       }
 
-      function getCropPointerList() {
-        return Object.keys(cropPointers).map(function (id) { return cropPointers[id]; });
+      function clamp(value, minimum, maximum) {
+        return Math.max(minimum, Math.min(maximum, value));
       }
 
-      function beginCropGesture() {
-        var pointers = getCropPointerList();
-        if (pointers.length >= 2) {
-          var centerX = (pointers[0].x + pointers[1].x) / 2;
-          var centerY = (pointers[0].y + pointers[1].y) / 2;
-          cropGesture = {
-            type: 'pinch',
-            distance: Math.max(1, Math.hypot(pointers[1].x - pointers[0].x, pointers[1].y - pointers[0].y)),
-            scale: imageTransform.scale,
-            imageX: (centerX - imageTransform.x) / imageTransform.scale,
-            imageY: (centerY - imageTransform.y) / imageTransform.scale
-          };
-        } else if (pointers.length === 1) {
-          cropGesture = {
-            type: 'drag',
-            startX: pointers[0].x,
-            startY: pointers[0].y,
-            imageX: imageTransform.x,
-            imageY: imageTransform.y
-          };
-        } else {
-          cropGesture = null;
-        }
+      function copyCropFrame() {
+        return {
+          x: cropFrame.x,
+          y: cropFrame.y,
+          width: cropFrame.width,
+          height: cropFrame.height
+        };
+      }
+
+      function resizeCropFrame(pointer) {
+        var handle = cropGesture.handle;
+        var frame = cropGesture.frame;
+        var bounds = getImageBounds();
+        var left = frame.x;
+        var top = frame.y;
+        var right = frame.x + frame.width;
+        var bottom = frame.y + frame.height;
+        var deltaX = pointer.x - cropGesture.startX;
+        var deltaY = pointer.y - cropGesture.startY;
+        var maximumRight = bounds.x + bounds.width;
+        var maximumBottom = bounds.y + bounds.height;
+        var minimumWidth = Math.min(MIN_CROP_SIZE, bounds.width);
+        var minimumHeight = Math.min(MIN_CROP_SIZE, bounds.height);
+
+        if (handle.indexOf('w') !== -1) left = clamp(frame.x + deltaX, bounds.x, right - minimumWidth);
+        if (handle.indexOf('e') !== -1) right = clamp(frame.x + frame.width + deltaX, left + minimumWidth, maximumRight);
+        if (handle.indexOf('n') !== -1) top = clamp(frame.y + deltaY, bounds.y, bottom - minimumHeight);
+        if (handle.indexOf('s') !== -1) bottom = clamp(frame.y + frame.height + deltaY, top + minimumHeight, maximumBottom);
+
+        cropFrame.x = left;
+        cropFrame.y = top;
+        cropFrame.width = right - left;
+        cropFrame.height = bottom - top;
+        renderCropFrame();
+      }
+
+      function moveCropFrame(pointer) {
+        var bounds = getImageBounds();
+        var frame = cropGesture.frame;
+        cropFrame.x = clamp(
+          frame.x + pointer.x - cropGesture.startX,
+          bounds.x,
+          bounds.x + bounds.width - frame.width
+        );
+        cropFrame.y = clamp(
+          frame.y + pointer.y - cropGesture.startY,
+          bounds.y,
+          bounds.y + bounds.height - frame.height
+        );
+        renderCropFrame();
+      }
+
+      function drawCropFrame(pointer) {
+        var bounds = getImageBounds();
+        var x = clamp(pointer.x, bounds.x, bounds.x + bounds.width);
+        var y = clamp(pointer.y, bounds.y, bounds.y + bounds.height);
+        cropFrame.x = Math.min(cropGesture.startX, x);
+        cropFrame.y = Math.min(cropGesture.startY, y);
+        cropFrame.width = Math.max(1, Math.abs(x - cropGesture.startX));
+        cropFrame.height = Math.max(1, Math.abs(y - cropGesture.startY));
+        renderCropFrame();
+      }
+
+      function ensureMinimumCropSize() {
+        var bounds = getImageBounds();
+        var width = Math.min(Math.max(cropFrame.width, MIN_CROP_SIZE), bounds.width);
+        var height = Math.min(Math.max(cropFrame.height, MIN_CROP_SIZE), bounds.height);
+        var centerX = cropFrame.x + cropFrame.width / 2;
+        var centerY = cropFrame.y + cropFrame.height / 2;
+        cropFrame.width = width;
+        cropFrame.height = height;
+        cropFrame.x = clamp(centerX - width / 2, bounds.x, bounds.x + bounds.width - width);
+        cropFrame.y = clamp(centerY - height / 2, bounds.y, bounds.y + bounds.height - height);
+        renderCropFrame();
       }
 
       function startCropAction(event) {
-        if (!selectedImage) return;
-        cropPointers[event.pointerId] = getPointerPosition(event);
+        if (!selectedImage || cropGesture || (event.pointerType === 'mouse' && event.button !== 0)) return;
+        var handleElement = event.target.closest && event.target.closest('.crop-handle');
+        var handle = handleElement ? handleElement.getAttribute('data-handle') : '';
+        var point = getPointerPosition(event);
+        var boxElement = event.target.closest && event.target.closest('.crop-box');
+        var bounds = getImageBounds();
+        if (!handle && !boxElement &&
+            (point.x < bounds.x || point.x > bounds.x + bounds.width ||
+             point.y < bounds.y || point.y > bounds.y + bounds.height)) return;
+
+        cropGesture = {
+          type: handle ? 'resize' : (boxElement ? 'move' : 'draw'),
+          handle: handle,
+          pointerId: event.pointerId,
+          startX: point.x,
+          startY: point.y,
+          frame: copyCropFrame()
+        };
+        if (cropGesture.type === 'draw') {
+          cropFrame = { x: point.x, y: point.y, width: 1, height: 1 };
+          renderCropFrame();
+        }
+        cropCanvas.classList.add('is-adjusting');
+        cropCanvas.classList.add(cropGesture.type === 'move'
+          ? 'is-moving'
+          : (cropGesture.type === 'draw' ? 'is-drawing' : 'is-resizing'));
         cropCanvas.setPointerCapture(event.pointerId);
-        cropCanvas.classList.add('is-dragging');
-        beginCropGesture();
         event.preventDefault();
       }
 
       function moveCropAction(event) {
-        if (!cropPointers[event.pointerId] || !cropGesture) return;
-        cropPointers[event.pointerId] = getPointerPosition(event);
-        var pointers = getCropPointerList();
-        if (pointers.length >= 2 && cropGesture.type === 'pinch') {
-          var centerX = (pointers[0].x + pointers[1].x) / 2;
-          var centerY = (pointers[0].y + pointers[1].y) / 2;
-          var distance = Math.max(1, Math.hypot(pointers[1].x - pointers[0].x, pointers[1].y - pointers[0].y));
-          imageTransform.scale = Math.max(minimumScale, Math.min(minimumScale * 5, cropGesture.scale * distance / cropGesture.distance));
-          imageTransform.x = centerX - cropGesture.imageX * imageTransform.scale;
-          imageTransform.y = centerY - cropGesture.imageY * imageTransform.scale;
-        } else if (pointers.length === 1 && cropGesture.type === 'drag') {
-          imageTransform.x = cropGesture.imageX + pointers[0].x - cropGesture.startX;
-          imageTransform.y = cropGesture.imageY + pointers[0].y - cropGesture.startY;
-        }
-        clampImagePosition();
-        renderCropImage();
+        if (!cropGesture || event.pointerId !== cropGesture.pointerId) return;
+        var point = getPointerPosition(event);
+        if (cropGesture.type === 'resize') resizeCropFrame(point);
+        if (cropGesture.type === 'move') moveCropFrame(point);
+        if (cropGesture.type === 'draw') drawCropFrame(point);
         event.preventDefault();
       }
 
       function endCropAction(event) {
-        delete cropPointers[event.pointerId];
-        beginCropGesture();
-        if (!getCropPointerList().length) cropCanvas.classList.remove('is-dragging');
+        if (!cropGesture || event.pointerId !== cropGesture.pointerId) return;
+        var endingGesture = cropGesture;
+        cropGesture = null;
+        cropCanvas.classList.remove('is-moving', 'is-resizing', 'is-drawing', 'is-adjusting');
+        if (event.type === 'pointercancel') {
+          cropFrame = endingGesture.frame;
+          renderCropFrame();
+        } else if (endingGesture.type === 'draw') {
+          ensureMinimumCropSize();
+        }
+        if (cropCanvas.hasPointerCapture(event.pointerId)) cropCanvas.releasePointerCapture(event.pointerId);
       }
 
       function getSourceCrop() {
+        var x = clamp((cropFrame.x - imageTransform.x) / imageTransform.scale, 0, selectedImage.naturalWidth);
+        var y = clamp((cropFrame.y - imageTransform.y) / imageTransform.scale, 0, selectedImage.naturalHeight);
         return {
-          x: (cropFrame.x - imageTransform.x) / imageTransform.scale,
-          y: (cropFrame.y - imageTransform.y) / imageTransform.scale,
-          width: cropFrame.width / imageTransform.scale,
-          height: cropFrame.height / imageTransform.scale
+          x: x,
+          y: y,
+          width: Math.min(cropFrame.width / imageTransform.scale, selectedImage.naturalWidth - x),
+          height: Math.min(cropFrame.height / imageTransform.scale, selectedImage.naturalHeight - y)
         };
       }
 
       function hideCropEditor() {
         cropEditor.classList.remove('is-visible');
         document.body.classList.remove('is-cropping');
-        cropPointers = {};
         cropGesture = null;
-        cropCanvas.classList.remove('is-dragging');
+        cropCanvas.classList.remove('is-moving', 'is-resizing', 'is-drawing', 'is-adjusting');
       }
 
       function cancelCrop() {
@@ -895,15 +984,6 @@
       cropCanvas.addEventListener('pointermove', moveCropAction);
       cropCanvas.addEventListener('pointerup', endCropAction);
       cropCanvas.addEventListener('pointercancel', endCropAction);
-      cropCanvas.addEventListener('wheel', function (event) {
-        if (!selectedImage) return;
-        var point = getPointerPosition(event);
-        setImageScale(imageTransform.scale * (event.deltaY < 0 ? 1.08 : .92), point.x, point.y);
-        event.preventDefault();
-      }, { passive: false });
-      zoomRange.addEventListener('input', function () {
-        setImageScale(minimumScale * Number(zoomRange.value) / 100, cropFrame.x + cropFrame.width / 2, cropFrame.y + cropFrame.height / 2);
-      });
       cancelCropButton.addEventListener('click', cancelCrop);
       cropRecognizeButton.addEventListener('click', function () {
         if (!selectedImage) return;
