@@ -492,8 +492,12 @@
       <div class="summary-item">
         <span class="summary-label">平均金额</span>
         <strong class="summary-value" id="average-amount">0.000</strong>
+        <span class="summary-label">×1.01</span>
+        <strong class="summary-value" id="adjusted-average-101">0.000</strong>
         <span class="summary-label">×1.015</span>
         <strong class="summary-value" id="adjusted-average">0.000</strong>
+        <span class="summary-label">×1.02</span>
+        <strong class="summary-value" id="adjusted-average-102">0.000</strong>
       </div>
     </section>
   </main>
@@ -578,9 +582,13 @@
         totalQuantity = round3(totalQuantity);
         totalAmount = round3(totalAmount);
         var average = totalQuantity === 0 ? 0 : round3(totalAmount / totalQuantity);
+        var adjustedAverage101 = round3(average * 1.01);
         var adjustedAverage = round3(average * 1.015);
+        var adjustedAverage102 = round3(average * 1.02);
         document.getElementById('average-amount').textContent = average.toFixed(3);
+        document.getElementById('adjusted-average-101').textContent = adjustedAverage101.toFixed(3);
         document.getElementById('adjusted-average').textContent = adjustedAverage.toFixed(3);
+        document.getElementById('adjusted-average-102').textContent = adjustedAverage102.toFixed(3);
       }
 
       function normalizeAmount(input) {
